@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>chatsito</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+
+<body>
+<div class="app">
+
+  <div class="sidebar">
+    <h2>Chatsito</h2>
+    <ul>
+      <li onclick="cambiarGrupo('grupo1')">Grupo 1</li>
+      <li onclick="cambiarGrupo('grupo2')">Grupo 2</li>
+      <li onclick="cambiarGrupo('grupo3')">Grupo 3</li>
+      <li onclick="cambiarGrupo('grupo4')">Grupo 4</li>
+      <li onclick="cambiarGrupo('grupo5')">Grupo 5</li>
+      <li onclick="cambiarGrupo('grupo6')">Grupo 6</li>
+    </ul>
+  </div>
+
+  <div class="chat">
+    <div class="topbar">
+      <span id="grupoActivo">Grupo 1</span>
+      <input type="text" id="inputUsuario" placeholder="Nombre de usuario">
+    </div>
+
+    <div id="mensajes" class="mensajes"></div>
+
+    <div class="input-area">
+      <input type="text" id="inputMensaje" placeholder="Escribe un mensaje...">
+      <button onclick="enviarMensaje()">Enviar</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/chat.js"></script>
+</body>
+</html>
