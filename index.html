@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHAT_SYS — Mensajería</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:       #09080f;
+      --panel:    #0d0b1a;
+      --card:     #100e20;
+      --border-b: #7c3aed;
+      --border:   rgba(124,58,237,0.55);
+      --text:     #ffffff;
+      --muted:    rgba(255,255,255,0.5);
+      --active:   rgba(124,58,237,0.15);
+      --glow:     rgba(139,92,246,0.45);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      font-family: 'DotGothic16','Share Tech Mono',monospace;
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Grid de fondo */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(124,58,237,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,58,237,0.05) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+
+    /* Scanlines CRT */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.08) 0px, rgba(0,0,0,0.08) 1px,
+        transparent 1px, transparent 3px
+      );
+      pointer-events: none;
+    }
+
+    /* ══ TOPBAR ══════════════════════════════════════════════════ */
+    header {
+      position: relative; z-index: 10;
+      background: var(--panel);
+      border-bottom: 2px solid var(--border-b);
+      height: 44px;
+      padding: 0 16px;
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 24px var(--glow);
+    }
+
+    header::after {
+      content: '';
+      position: absolute; bottom: -2px; left: 0;
+      width: 100%; height: 2px;
+      background: linear-gradient(90deg, transparent, #fff 40%, transparent);
+      opacity: 0.4; pointer-events: none;
+    }
+
+    .h-dots { display: flex; gap: 5px; }
+    .h-dot {
+      width: 8px; height: 8px;
+      border: 1px solid rgba(124,58,237,0.6);
+      background: transparent;
+    }
+    .h-dot.on {
+      background: #ffffff;
+      border-color: #ffffff;
+      box-shadow: 0 0 6px rgba(255,255,255,0.8);
+    }
+
+    .h-title {
+      font-size: 12px; letter-spacing: 4px; text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 0 10px #fff, 0 0 20px var(--glow);
+      flex: 1;
+    }
+
+    .h-status {
+      font-size: 9px; letter-spacing: 2px;
+      color: #ffffff;
+      text-shadow: 0 0 8px rgba(255,255,255,0.6);
+      animation: blink 1.4s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ══ TABS DE GRUPOS ══════════════════════════════════════════ */
+    .tabs {
+      position: relative; z-index: 10;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: stretch;
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+
+    .tabs::-webkit-scrollbar { height: 2px; }
+    .tabs::-webkit-scrollbar-thumb { background: var(--border-b); }
+
+    .tab {
+      padding: 8px 18px;
+      font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      border-right: 1px solid rgba(124,58,237,0.2);
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      color: #ffffff;
+      background: var(--active);
+    }
+
+    .tab.active {
+      color: #ffffff;
+      text-shadow: 0 0 8px #fff, 0 0 16px var(--glow);
+      border-bottom-color: var(--border-b);
+      background: var(--active);
+    }
+
+    /* ══ MAIN LAYOUT ═════════════════════════════════════════════ */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative; z-index: 5;
+    }
+
+    /* ══ ÁREA DE MENSAJES ════════════════════════════════════════ */
+    .chat-col {
+      flex: 1;
+      display: flex; flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .mensajes {
+      flex: 1;
+      padding: 14px 16px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .mensajes::-webkit-scrollbar { width: 3px; }
+    .mensajes::-webkit-scrollbar-track { background: transparent; }
+    .mensajes::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.4); }
+
+    .mensaje {
+      background: rgba(13,11,26,0.8);
+      border: 1px solid rgba(124,58,237,0.18);
+      border-left: 3px solid var(--border-b);
+      padding: 8px 12px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .usuario {
+      font-size: 10px;
+      color: #ffffff;
+      letter-spacing: 2px; text-transform: uppercase;
+      text-shadow: 0 0 8px #fff, 0 0 16px var(--glow);
+    }
+
+    .msg-text {
+      font-size: 12px; color: #ffffff;
+      margin-top: 3px; line-height: 1.6;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 4px rgba(255,255,255,0.25);
+    }
+
+    .msg-time {
+      font-size: 8px; color: rgba(255,255,255,0.35);
+      letter-spacing: 1px; margin-top: 4px;
+    }
+
+    /* ══ INPUT ÁREA ══════════════════════════════════════════════ */
+    .input-area {
+      background: var(--panel);
+      border-top: 2px solid var(--border-b);
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
+      box-shadow: 0 -2px 20px var(--glow);
+    }
+
+    .input-prompt {
+      font-size: 13px; color: #ffffff;
+      text-shadow: 0 0 6px rgba(255,255,255,0.5);
+      flex-shrink: 0;
+    }
+
+    .input-area input {
+      flex: 1;
+      background: rgba(124,58,237,0.07);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-left: 3px solid var(--border-b);
+      padding: 9px 12px;
+      font-family: 'DotGothic16', monospace;
+      font-size: 12px; color: #ffffff;
+      outline: none; caret-color: #ffffff;
+      transition: all 0.2s;
+    }
+
+    .input-area input:focus {
+      border-color: rgba(124,58,237,0.6);
+      border-left-color: #ffffff;
+      background: rgba(124,58,237,0.12);
+      box-shadow: 0 0 14px rgba(139,92,246,0.1);
+    }
+
+    .input-area input::placeholder {
+      color: rgba(255,255,255,0.22); letter-spacing: 2px;
+    }
+
+    .btn-send {
+      background: rgba(124,58,237,0.12);
+      border: 1px solid var(--border-b);
+      color: #ffffff;
+      text-shadow: 0 0 8px rgba(255,255,255,0.6);
+      font-family: 'DotGothic16', monospace;
+      font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+      padding: 9px 16px; cursor: pointer;
+      transition: all 0.2s;
+      clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+    }
+
+    .btn-send:hover {
+      background: rgba(124,58,237,0.28);
+      box-shadow: 0 0 16px rgba(139,92,246,0.35);
+    }
+
+    /* ══ PANEL DERECHO — USUARIO ═════════════════════════════════ */
+    .user-panel {
+      width: 200px;
+      background: var(--panel);
+      display: flex; flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .user-panel-label {
+      padding: 10px 14px 8px;
+      font-size: 8px; letter-spacing: 3px; text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 0 6px rgba(255,255,255,0.5);
+      border-bottom: 1px solid rgba(124,58,237,0.2);
+    }
+
+    .user-avatar-wrap {
+      padding: 14px 14px 0;
+      position: relative;
+    }
+
+    /* Esquinas decorativas en la imagen */
+    .user-avatar-wrap::before,
+    .user-avatar-wrap::after {
+      content: '';
+      position: absolute;
+      width: 12px; height: 12px;
+      z-index: 2; pointer-events: none;
+    }
+    .user-avatar-wrap::before {
+      top: 12px; left: 12px;
+      border-top: 2px solid #ffffff;
+      border-left: 2px solid #ffffff;
+    }
+    .user-avatar-wrap::after {
+      top: 12px; right: 12px;
+      border-top: 2px solid #ffffff;
+      border-right: 2px solid #ffffff;
+    }
+
+    .user-avatar {
+      width: 100%;
+      aspect-ratio: 1/1;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      display: block;
+      filter: brightness(0.9) contrast(1.05);
+    }
+
+    .user-avatar-corners-bottom {
+      position: relative; margin: 0 14px;
+    }
+    .user-avatar-corners-bottom::before,
+    .user-avatar-corners-bottom::after {
+      content: '';
+      position: absolute;
+      width: 12px; height: 12px;
+      top: -12px;
+    }
+    .user-avatar-corners-bottom::before {
+      left: 0;
+      border-bottom: 2px solid #ffffff;
+      border-left: 2px solid #ffffff;
+    }
+    .user-avatar-corners-bottom::after {
+      right: 0;
+      border-bottom: 2px solid #ffffff;
+      border-right: 2px solid #ffffff;
+    }
+
+    .user-name-display {
+      margin: 10px 14px 0;
+      font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 0 8px #fff, 0 0 16px var(--glow);
+      border-bottom: 1px solid rgba(124,58,237,0.25);
+      padding-bottom: 8px;
+    }
+
+    .user-info {
+      padding: 10px 14px;
+      display: flex; flex-direction: column; gap: 7px;
+      flex: 1;
+    }
+
+    .info-row {
+      display: flex; flex-direction: column; gap: 2px;
+    }
+
+    .info-key {
+      font-size: 7px; letter-spacing: 2px; text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .info-val {
+      font-size: 10px; letter-spacing: 1px;
+      color: #ffffff;
+      text-shadow: 0 0 4px rgba(255,255,255,0.3);
+    }
+
+    /* Campo de usuario dentro del panel */
+    .user-name-input {
+      background: rgba(124,58,237,0.07);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-left: 3px solid var(--border-b);
+      padding: 5px 8px;
+      font-family: 'DotGothic16', monospace;
+      font-size: 11px; color: #ffffff;
+      outline: none; caret-color: #ffffff;
+      width: 100%;
+      transition: all 0.2s;
+      letter-spacing: 1px;
+    }
+
+    .user-name-input:focus {
+      border-left-color: #ffffff;
+      background: rgba(124,58,237,0.12);
+      box-shadow: 0 0 10px rgba(139,92,246,0.1);
+    }
+
+    .user-name-input::placeholder {
+      color: rgba(255,255,255,0.22); letter-spacing: 1px;
+    }
+
+    /* ══ STATUS BAR ══════════════════════════════════════════════ */
+    .statusbar {
+      position: relative; z-index: 10;
+      background: var(--panel);
+      border-top: 1px solid rgba(124,58,237,0.3);
+      height: 26px;
+      padding: 0 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .status-left, .status-right {
+      font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .status-right span {
+      color: #ffffff;
+      text-shadow: 0 0 6px rgba(255,255,255,0.5);
+    }
+
+    /* ══ RESPONSIVE ══════════════════════════════════════════════ */
+    @media (max-width: 650px) {
+
+      /* El main pasa a columna: panel arriba, chat abajo */
+      .main {
+        flex-direction: column;
+      }
+
+      /* Panel usuario: horizontal y compacto arriba */
+      .user-panel {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding: 8px 10px;
+        gap: 10px;
+        flex-shrink: 0;
+        height: auto;
+      }
+
+      .user-panel-label { display: none; }
+
+      /* Avatar pequeño */
+      .user-avatar-wrap {
+        padding: 0;
+        width: 46px; height: 46px;
+        flex-shrink: 0;
+      }
+      .user-avatar-wrap::before,
+      .user-avatar-wrap::after { display: none; }
+      .user-avatar {
+        width: 46px; height: 46px;
+        border: 1px solid var(--border);
+      }
+      .user-avatar-corners-bottom { display: none; }
+      .user-name-display { display: none; }
+
+      /* Info compacta en fila */
+      .user-info {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 0;
+        flex: 1;
+      }
+
+      /* Solo mostrar el input de nombre y canal activo */
+      .info-row:nth-child(2),
+      .info-row:nth-child(3) { display: none; }
+
+      .info-row:first-child {
+        flex: 1;
+        min-width: 120px;
+      }
+
+      .info-key { display: none; }
+
+      .user-name-input {
+        font-size: 11px;
+        padding: 6px 8px;
+      }
+
+      /* Tabs más compactos */
+      .tab { padding: 7px 12px; font-size: 9px; letter-spacing: 1px; }
+
+      /* Chat col ocupa el resto */
+      .chat-col { flex: 1; min-height: 0; }
+
+      /* Statusbar oculta en móvil para ganar espacio */
+      .statusbar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <header>
+    <div class="h-dots">
+      <div class="h-dot on"></div>
+      <div class="h-dot on"></div>
+      <div class="h-dot"></div>
+    </div>
+    <div class="h-title">Mensajería</div>
+    <div class="h-status">ONLINE &#9679;</div>
+  </header>
+
+  <!-- TABS DE GRUPOS -->
+  <div class="tabs">
+    <div class="tab active" onclick="cambiarGrupo('grupo1', this)">Grupo 1</div>
+    <div class="tab" onclick="cambiarGrupo('grupo2', this)">Grupo 2</div>
+    <div class="tab" onclick="cambiarGrupo('grupo3', this)">Grupo 3</div>
+    <div class="tab" onclick="cambiarGrupo('grupo4', this)">Grupo 4</div>
+    <div class="tab" onclick="cambiarGrupo('grupo5', this)">Grupo 5</div>
+    <div class="tab" onclick="cambiarGrupo('grupo6', this)">Grupo 6</div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- CHAT -->
+    <div class="chat-col">
+      <div id="mensajes" class="mensajes"></div>
+
+      <div class="input-area">
+        <span class="input-prompt">&gt;_</span>
+        <input type="text" id="inputMensaje" placeholder="escribe_mensaje_"
+          onkeydown="if(event.key==='Enter') enviarMensaje()">
+        <button class="btn-send" onclick="enviarMensaje()">[ ENVIAR ]</button>
+      </div>
+    </div>
+
+    <!-- PANEL USUARIO -->
+    <div class="user-panel">
+      <div class="user-panel-label">// USUARIO</div>
+
+      <div class="user-avatar-wrap">
+        <img src="img/usuario.jpg" class="user-avatar" alt="usuario">
+      </div>
+      <div class="user-avatar-corners-bottom"></div>
+
+      <div class="user-name-display" id="userNameDisplay">ANONIMO</div>
+
+      <div class="user-info">
+        <div class="info-row">
+          <span class="info-key">// IDENTIFICADOR</span>
+          <input type="text" id="inputUsuario" class="user-name-input"
+            placeholder="nombre_usuario_"
+            oninput="actualizarNombre(this.value)">
+        </div>
+        <div class="info-row">
+          <span class="info-key">// CANAL ACTIVO</span>
+          <span class="info-val" id="grupoActivo">GRUPO 1</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">// ESTADO</span>
+          <span class="info-val">CONECTADO &#9679;</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="statusbar">
+    <span class="status-left">// SISTEMA ACTIVO</span>
+    <span class="status-right">USR: <span id="statusUser">—</span></span>
+  </div>
+
+  <script src="js/chat.js"></script>
+</body>
+</html>
